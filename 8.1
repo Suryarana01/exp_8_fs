@@ -1,0 +1,140 @@
+{
+  "name": "react-login-form",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "axios": "^1.6.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build"
+  }
+}
+npm install
+import axios from "axios";
+
+const API = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/api",
+});
+
+export const loginUser = (data) => API.post("/auth/login", data);
+import React, { useState } from "react";
+import { loginUser } from "../api";
+
+function LoginForm() {
+  // 🔹 State variables
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  // 🔹 Handle form submit
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!email || !password) {
+      setMessage("⚠️ Please fill in all fields");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Simulate API call
+      const res = await loginUser({ email, password });
+      localStorage.setItem("token", res.data.token);
+      setMessage("✅ Login successful!");
+    } catch (err) {
+      setMessage(err.response?.data?.message || "❌ Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={styles.container}>
+      <h2 style={styles.title}>🔐 React Login Form</h2>
+
+      <form onSubmit={handleSubmit} style={styles.form}>
+        <input
+          type="email"
+          placeholder="Enter your email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={styles.input}
+        />
+
+        <input
+          type="password"
+          placeholder="Enter your password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={styles.input}
+        />
+
+        <button type="submit" style={styles.button} disabled={loading}>
+          {loading ? "Logging in..." : "Login"}
+        </button>
+      </form>
+
+      {message && <p style={styles.message}>{message}</p>}
+    </div>
+  );
+}
+
+// 🎨 Inline CSS Styles
+const styles = {
+  container: {
+    width: "350px",
+    margin: "100px auto",
+    padding: "20px",
+    border: "1px solid #ddd",
+    borderRadius: "10px",
+    textAlign: "center",
+    background: "#fafafa",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+  },
+  title: { marginBottom: "20px", color: "#333" },
+  form: { display: "flex", flexDirection: "column", gap: "10px" },
+  input: {
+    padding: "10px",
+    borderRadius: "5px",
+    border: "1px solid #ccc"
+  },
+  button: {
+    padding: "10px",
+    background: "#007bff",
+    color: "white",
+    border: "none",
+    borderRadius: "5px",
+    cursor: "pointer"
+  },
+  message: { marginTop: "15px", fontSize: "14px", color: "#333" }
+};
+
+export default LoginForm;
+import React from "react";
+import LoginForm from "./components/LoginForm";
+
+function App() {
+  return (
+    <div>
+      <LoginForm />
+    </div>
+  );
+}
+
+export default App;
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+
+OUTPUT:
+Compiled successfully!
+
+
