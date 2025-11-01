@@ -1,0 +1,134 @@
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+dotenv.config();
+
+export const verifyToken = (req, res, next) => {
+  const token = req.header("Authorization")?.split(" ")[1];
+  if (!token)
+    return res.status(401).json({ message: "Access denied. No token provided." });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch {
+    res.status(400).json({ message: "Invalid token" });
+  }
+};
+import express from "express";
+import User from "../models/User.js";
+import { verifyToken } from "../middleware/auth.js";
+
+const router = express.Router();
+
+router.get("/balance", verifyToken, async (req, res) => {
+  const user = await User.findById(req.user.id);
+  res.json({ balance: user.balance });
+});
+
+router.post("/deposit", verifyToken, async (req, res) => {
+  const { amount } = req.body;
+  if (amount <= 0) return res.status(400).json({ message: "Invalid amount" });
+
+  const user = await User.findById(req.user.id);
+  user.balance += amount;
+  await user.save();
+
+  res.json({ message: "Deposit successful", newBalance: user.balance });
+});
+
+router.post("/withdraw", verifyToken, async (req, res) => {
+  const { amount } = req.body;
+  const user = await User.findById(req.user.id);
+  if (amount <= 0 || user.balance < amount)
+    return res.status(400).json({ message: "Insufficient balance" });
+
+  user.balance -= amount;
+  await user.save();
+
+  res.json({ message: "Withdrawal successful", newBalance: user.balance });
+});
+
+export default router;
+import axios from "axios";
+
+const API = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/api",
+});
+
+API.interceptors.request.use((req) => {
+  const token = localStorage.getItem("token");
+  if (token) req.headers.Authorization = `Bearer ${token}`;
+  return req;
+});
+
+export default API;
+import React from "react";
+import { Navigate } from "react-router-dom";
+
+const ProtectedRoute = ({ children }) => {
+  const token = localStorage.getItem("token");
+  return token ? children : <Navigate to="/login" replace />;
+};
+
+export default ProtectedRoute;
+import React, { useState } from "react";
+import API from "../api";
+import { useNavigate } from "react-router-dom";
+
+function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await API.post("/auth/login", { email, password });
+      localStorage.setItem("token", res.data.token);
+      setMessage("Login successful!");
+      navigate("/dashboard");
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Login failed");
+    }
+  };
+
+  return (
+    <div style={{ padding: "20px" }}>
+      <h2>🔐 Login</h2>
+      <form onSubmit={handleLogin}>
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        /><br />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        /><br />
+        <button type="submit">Login</button>
+      </form>
+      <p>{message}</p>
+    </div>
+  );
+}
+
+export default Login;
+
+OUTPUT:
+✅ Login
+POST /api/auth/login
+{
+  "message": "Login successful",
+  "token": "eyJhbGciOiJIUzI1NiIs..."
+}
+✅ Access Protected Route
+GET /api/bank/balance
+{ "balance": 1500 }
+🚫 Unauthorized Access
+GET /api/bank/balance without token:
+{ "message": "Access denied. No token provided." }
